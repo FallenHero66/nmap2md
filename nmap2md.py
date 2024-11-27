@@ -11,7 +11,7 @@ __version__ = "1.2.1"
 
 parser = OptionParser(usage="%prog [options] file.xml", version="%prog " + __version__)
 
-parser.add_option("-c", "--columns", default="Port,State,Service,Version", help="define a columns for the table")
+parser.add_option("-c", "--columns", default="Port,Protocol,State,Service,Version", help="define a columns for the table")
 parser.add_option(
     "--hs",
     default=4,
@@ -21,7 +21,7 @@ parser.add_option(
 parser.add_option(
     "--rc",
     "--row-cells",
-    default="[port.number]/[port.protocol],[state],[service.name],[service.product] [service.version]",
+    default="[port.number],[port.protocol],[state],[service.name],[service.product] [service.version]",
     help="define rows which will report certain data. Those rows: [port.number], [port.protocol], [state], "
          "[service.name], [service.product], [service.version] "
 )
@@ -67,6 +67,7 @@ except IndexError:
     sys.exit()
 
 definitions = columns_definition.Element.build(columns_definition.definition)
+
 result = {}
 md = ""
 
@@ -102,26 +103,26 @@ for host in tree.getroot().findall("host"):
     if ports:
         for port in ports.findall("port"):
             cells = []
-
             for rc in row_cells:
                 current_cell = rc
                 for bc in re.findall("(\[[a-z\.*]+\])", rc):
                     for definition in definitions:
                         elem = definition.find(bc[1:-1])
-
                         if elem:
                             xml_element = port.find(elem.xpathfull())
                             if xml_element is not None:
                                 data = elem.data(xml_element)
-                                current_cell = current_cell.replace(bc, data)
+                                #current_cell = current_cell.replace(bc, data)
+                                if (current_cell=="[port.number]"):
+                                    current_cell = int(data)
+                                else:
+                                    current_cell = current_cell.replace(bc, data)
+                                #print(current_cell)
                                 break
-
                             break
-
                 cells.append(current_cell)
 
             port_info.append(cells)
-
     result[address] = port_info
 
 # Start converting data to Markdown
@@ -146,7 +147,10 @@ for address in result:
     )
 
     for port_info in result[address]:
-        md += "| %s |" % " | ".join(port_info)
+        stringsonly = []
+        for entry in port_info:
+            stringsonly.append(str(entry))
+        md += "| %s |" % " | ".join(stringsonly)
         md += "\n"
 
     md += "\n\n"
